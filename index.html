@@ -2,8 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Simple Telegram Mini App</title>
+  <title>24h Timer Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -24,29 +25,73 @@
       cursor: pointer;
       background-color: #0088cc;
       color: white;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #0077b3;
     }
 
     #result {
       margin-top: 20px;
-      font-size: 18px;
+      font-size: 20px;
+      font-weight: bold;
     }
   </style>
 </head>
+
 <body>
 
   <button id="myButton">Click me</button>
   <div id="result"></div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand(); // make app full screen
+    const tg = window.Telegram?.WebApp;
+    if (tg) tg.expand();
 
     const button = document.getElementById("myButton");
     const result = document.getElementById("result");
 
+    const STORAGE_KEY = "timerEndTime";
+    let timerInterval = null;
+
+    function startTimer(endTime) {
+      clearInterval(timerInterval);
+
+      function update() {
+        const now = Date.now();
+        const diff = endTime - now;
+
+        if (diff <= 0) {
+          clearInterval(timerInterval);
+          localStorage.removeItem(STORAGE_KEY);
+          result.innerText = "Timer finished";
+          return;
+        }
+
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        result.innerText = `Time left: ${hours}h ${minutes}m`;
+      }
+
+      update();
+      timerInterval = setInterval(update, 1000);
+    }
+
+    // Restore timer if it exists
+    const savedEndTime = localStorage.getItem(STORAGE_KEY);
+    if (savedEndTime) {
+      startTimer(parseInt(savedEndTime));
+    }
+
+    // Button click → reset to 24 hours
     button.addEventListener("click", () => {
-      result.innerText = "It works!";
+      const newEndTime = Date.now() + 24 * 60 * 60 * 1000;
+      localStorage.setItem(STORAGE_KEY, newEndTime);
+      startTimer(newEndTime);
     });
+
   </script>
 
 </body>
