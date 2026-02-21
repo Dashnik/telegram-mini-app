@@ -1,98 +1,118 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>24h Timer Mini App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alive Mini App Tester</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-    }
-
-    button {
-      padding: 15px 30px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      background-color: #0088cc;
-      color: white;
-      transition: 0.2s ease;
-    }
-
-    button:hover {
-      background-color: #0077b3;
-    }
-
-    #result {
-      margin-top: 20px;
-      font-size: 20px;
-      font-weight: bold;
-    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; padding: 1rem; max-width: 480px; margin: 0 auto; }
+    section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
+    h2 { margin-top: 0; font-size: 1rem; }
+    input, button { margin: 0.25rem 0.25rem 0.25rem 0; }
+    input[type="number"] { width: 10ch; }
+    button { padding: 0.4rem 0.8rem; cursor: pointer; }
+    #response { background: #f5f5f5; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; min-height: 2em; }
+    .error { color: #c00; }
   </style>
 </head>
-
 <body>
+  <h1>Alive Mini App Tester</h1>
 
-  <button id="myButton">Click me</button>
-  <div id="result"></div>
+  <section>
+    <h2>1. Auth</h2>
+    <button type="button" id="btn-auth">Authenticate</button>
+  </section>
+
+  <section>
+    <h2>2. Friends</h2>
+    <input type="number" id="friendTelegramId" placeholder="Friend Telegram ID">
+    <button type="button" id="btn-add-friend">Add Friend</button>
+    <button type="button" id="btn-get-friends">Get Friends</button>
+  </section>
+
+  <section>
+    <h2>3. Timer</h2>
+    <button type="button" id="btn-start-timer">Start Timer (24h)</button>
+  </section>
+
+  <section>
+    <h2>4. Health</h2>
+    <button type="button" id="btn-health">Check Health</button>
+    <button type="button" id="btn-ready">Check Ready</button>
+  </section>
+
+  <section>
+    <h2>Response</h2>
+    <div id="response">—</div>
+  </section>
 
   <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) tg.expand();
+    const BASE_URL = "https://nonsanctimoniously-increasable-shella.ngrok-free.dev";
+    const responseEl = document.getElementById("response");
 
-    const button = document.getElementById("myButton");
-    const result = document.getElementById("result");
+    function show(data, isError) {
+      responseEl.className = isError ? "error" : "";
+      responseEl.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    }
 
-    const STORAGE_KEY = "timerEndTime";
-    let timerInterval = null;
+    function getHeaders(includeInitData) {
+      const headers = { "Content-Type": "application/json" };
+      if (includeInitData && window.Telegram?.WebApp?.initData) {
+        headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
+      }
+      return headers;
+    }
 
-    function startTimer(endTime) {
-      clearInterval(timerInterval);
-
-      function update() {
-        const now = Date.now();
-        const diff = endTime - now;
-
-        if (diff <= 0) {
-          clearInterval(timerInterval);
-          localStorage.removeItem(STORAGE_KEY);
-          result.innerText = "Timer finished";
+    async function request(method, path, body, includeInitData = true) {
+      try {
+        const opts = { method, headers: getHeaders(includeInitData) };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const res = await fetch(BASE_URL + path, opts);
+        const text = await res.text();
+        let data;
+        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+        if (!res.ok) {
+          show({ status: res.status, error: data }, true);
           return;
         }
-
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-        result.innerText = `Time left: ${hours}h ${minutes}m`;
+        show(data);
+      } catch (err) {
+        show("Error: " + err.message, true);
       }
-
-      update();
-      timerInterval = setInterval(update, 1000);
     }
 
-    // Restore timer if it exists
-    const savedEndTime = localStorage.getItem(STORAGE_KEY);
-    if (savedEndTime) {
-      startTimer(parseInt(savedEndTime));
-    }
-
-    // Button click → reset to 24 hours
-    button.addEventListener("click", () => {
-      const newEndTime = Date.now() + 24 * 60 * 60 * 1000;
-      localStorage.setItem(STORAGE_KEY, newEndTime);
-      startTimer(newEndTime);
+    document.getElementById("btn-auth").addEventListener("click", () => {
+      const initData = window.Telegram?.WebApp?.initData || "";
+      request("POST", "/auth", undefined, true);
     });
 
-  </script>
+    document.getElementById("btn-add-friend").addEventListener("click", () => {
+      const id = document.getElementById("friendTelegramId").value;
+      if (!id) { show("Enter friend Telegram ID", true); return; }
+      request("POST", "/friends", { friendTelegramId: Number(id) });
+    });
 
+    document.getElementById("btn-get-friends").addEventListener("click", () => {
+      request("GET", "/friends");
+    });
+
+    document.getElementById("btn-start-timer").addEventListener("click", () => {
+      request("POST", "/timer/start");
+    });
+
+    document.getElementById("btn-health").addEventListener("click", () => {
+      request("GET", "/health");
+    });
+
+    document.getElementById("btn-ready").addEventListener("click", () => {
+      request("GET", "/health/ready");
+    });
+
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+    }
+  </script>
 </body>
 </html>
