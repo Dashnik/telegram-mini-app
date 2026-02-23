@@ -1,118 +1,451 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alive Mini App Tester</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telegram Mini App</title>
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; padding: 1rem; max-width: 480px; margin: 0 auto; }
-    section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-    h2 { margin-top: 0; font-size: 1rem; }
-    input, button { margin: 0.25rem 0.25rem 0.25rem 0; }
-    input[type="number"] { width: 10ch; }
-    button { padding: 0.4rem 0.8rem; cursor: pointer; }
-    #response { background: #f5f5f5; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; min-height: 2em; }
-    .error { color: #c00; }
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --card: #111827;
+      --card-border: #1f2937;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #22c55e;
+      --primary-disabled: #4b5563;
+      --secondary: #2563eb;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    h1, h2 {
+      margin: 0 0 10px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    h1 {
+      font-size: 20px;
+    }
+
+    h2 {
+      font-size: 17px;
+    }
+
+    .timer {
+      font-size: clamp(34px, 11vw, 52px);
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-align: center;
+      margin: 8px 0 14px;
+    }
+
+    .row {
+      display: grid;
+      gap: 10px;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    button:disabled {
+      background: var(--primary-disabled) !important;
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+
+    #refreshBtn {
+      background: var(--primary);
+    }
+
+    #inviteBtn {
+      background: var(--secondary);
+    }
+
+    .status {
+      min-height: 20px;
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 6px;
+      word-break: break-word;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .status.success {
+      color: #34d399;
+    }
+
+    .friends-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .friends-list li {
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(148, 163, 184, 0.06);
+      font-size: 14px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
-  <h1>Alive Mini App Tester</h1>
+  <main class="app">
+    <section class="card">
+      <h1>Alive Timer</h1>
+      <div id="timerDisplay" class="timer">00:00:00</div>
+      <div class="row">
+        <button id="refreshBtn" type="button">Refresh Timer</button>
+        <button id="inviteBtn" type="button">Invite Friends</button>
+      </div>
+      <div id="globalStatus" class="status"></div>
+    </section>
 
-  <section>
-    <h2>1. Auth</h2>
-    <button type="button" id="btn-auth">Authenticate</button>
-  </section>
+    <section class="card">
+      <h2>Friends</h2>
+      <div id="friendsEmpty" class="muted">Loading friends...</div>
+      <ul id="friendsList" class="friends-list"></ul>
+    </section>
+  </main>
 
-  <section>
-    <h2>2. Friends</h2>
-    <input type="number" id="friendTelegramId" placeholder="Friend Telegram ID">
-    <button type="button" id="btn-add-friend">Add Friend</button>
-    <button type="button" id="btn-get-friends">Get Friends</button>
-  </section>
-
-  <section>
-    <h2>3. Timer</h2>
-    <button type="button" id="btn-start-timer">Start Timer (24h)</button>
-  </section>
-
-  <section>
-    <h2>4. Health</h2>
-    <button type="button" id="btn-health">Check Health</button>
-    <button type="button" id="btn-ready">Check Ready</button>
-  </section>
-
-  <section>
-    <h2>Response</h2>
-    <div id="response">—</div>
-  </section>
-
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    const BASE_URL = "https://nonsanctimoniously-increasable-shella.ngrok-free.dev";
-    const responseEl = document.getElementById("response");
+    (function () {
+      "use strict";
 
-    function show(data, isError) {
-      responseEl.className = isError ? "error" : "";
-      responseEl.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-    }
+      const API_URL = "http://localhost:3000/"; // https://YOUR_NGROK_URL
+      const ENDPOINTS = {
+        login: "/auth/login",
+        timerRefresh: "/timer/refresh",
+        inviteLink: "/friends/invite-link",
+        friendsList: "/friends/list"
+      };
 
-    function getHeaders(includeInitData) {
-      const headers = { "Content-Type": "application/json" };
-      if (includeInitData && window.Telegram?.WebApp?.initData) {
-        headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
+      const state = {
+        tg: null,
+        initData: "",
+        timerExpiresAtMs: 0,
+        timerIntervalId: null,
+        inFlight: {
+          refresh: false,
+          invite: false
+        }
+      };
+
+      const ui = {
+        timerDisplay: document.getElementById("timerDisplay"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        inviteBtn: document.getElementById("inviteBtn"),
+        globalStatus: document.getElementById("globalStatus"),
+        friendsList: document.getElementById("friendsList"),
+        friendsEmpty: document.getElementById("friendsEmpty")
+      };
+
+      function setStatus(message, type) {
+        ui.globalStatus.textContent = message || "";
+        ui.globalStatus.className = "status";
+        if (type === "error") ui.globalStatus.classList.add("error");
+        if (type === "success") ui.globalStatus.classList.add("success");
       }
-      return headers;
-    }
 
-    async function request(method, path, body, includeInitData = true) {
-      try {
-        const opts = { method, headers: getHeaders(includeInitData) };
-        if (body !== undefined) opts.body = JSON.stringify(body);
-        const res = await fetch(BASE_URL + path, opts);
-        const text = await res.text();
-        let data;
-        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-        if (!res.ok) {
-          show({ status: res.status, error: data }, true);
+      function setButtonLoading(button, loading, textWhenLoading, textWhenIdle) {
+        button.disabled = loading;
+        button.textContent = loading ? textWhenLoading : textWhenIdle;
+      }
+
+      function formatDuration(totalSeconds) {
+        const safeSeconds = Math.max(0, totalSeconds);
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const seconds = Math.floor(safeSeconds % 60);
+        return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+      }
+
+      function renderTimer() {
+        if (!state.timerExpiresAtMs) {
+          ui.timerDisplay.textContent = "00:00:00";
           return;
         }
-        show(data);
-      } catch (err) {
-        show("Error: " + err.message, true);
+        const nowMs = Date.now();
+        const remainingMs = state.timerExpiresAtMs - nowMs;
+        const remainingSeconds = Math.floor(remainingMs / 1000);
+        ui.timerDisplay.textContent = formatDuration(remainingSeconds);
       }
-    }
 
-    document.getElementById("btn-auth").addEventListener("click", () => {
-      const initData = window.Telegram?.WebApp?.initData || "";
-      request("POST", "/auth", undefined, true);
-    });
+      function startTimerTicking() {
+        if (state.timerIntervalId) {
+          clearInterval(state.timerIntervalId);
+        }
+        renderTimer();
+        state.timerIntervalId = window.setInterval(renderTimer, 1000);
+      }
 
-    document.getElementById("btn-add-friend").addEventListener("click", () => {
-      const id = document.getElementById("friendTelegramId").value;
-      if (!id) { show("Enter friend Telegram ID", true); return; }
-      request("POST", "/friends", { friendTelegramId: Number(id) });
-    });
+      function parseExpiresAt(payload) {
+        if (!payload || typeof payload !== "object") return 0;
+        const candidates = [
+          payload.timerExpiresAt,
+          payload.expiresAt,
+          payload.user && payload.user.timerExpiresAt,
+          payload.data && payload.data.timerExpiresAt,
+          payload.data && payload.data.expiresAt
+        ];
+        for (const rawValue of candidates) {
+          if (rawValue === null || rawValue === undefined || rawValue === "") continue;
 
-    document.getElementById("btn-get-friends").addEventListener("click", () => {
-      request("GET", "/friends");
-    });
+          if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+            return rawValue > 1e12 ? rawValue : rawValue * 1000;
+          }
 
-    document.getElementById("btn-start-timer").addEventListener("click", () => {
-      request("POST", "/timer/start");
-    });
+          if (typeof rawValue === "string" && /^[0-9]+$/.test(rawValue)) {
+            const asNumber = Number(rawValue);
+            if (Number.isFinite(asNumber)) {
+              return asNumber > 1e12 ? asNumber : asNumber * 1000;
+            }
+          }
 
-    document.getElementById("btn-health").addEventListener("click", () => {
-      request("GET", "/health");
-    });
+          const timestamp = Date.parse(rawValue);
+          if (!Number.isNaN(timestamp)) return timestamp;
+        }
+        return 0;
+      }
 
-    document.getElementById("btn-ready").addEventListener("click", () => {
-      request("GET", "/health/ready");
-    });
+      function getReferralFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get("ref");
+        return ref ? ref.trim() : "";
+      }
 
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-    }
+      async function apiRequest(path, options) {
+        const url = API_URL.replace(/\/+$/, "") + path;
+        const response = await fetch(url, {
+          method: options.method || "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "tma " + state.initData
+          },
+          body: options.body ? JSON.stringify(options.body) : undefined
+        });
+
+        const rawText = await response.text();
+        let data = null;
+        if (rawText) {
+          try {
+            data = JSON.parse(rawText);
+          } catch (error) {
+            data = { raw: rawText };
+          }
+        }
+
+        if (!response.ok) {
+          const messageFromApi =
+            data && typeof data === "object" && (data.message || data.error || data.detail);
+          throw new Error(messageFromApi || ("Request failed: " + response.status));
+        }
+
+        return data;
+      }
+
+      function renderFriends(items) {
+        ui.friendsList.innerHTML = "";
+        if (!Array.isArray(items) || items.length === 0) {
+          ui.friendsEmpty.style.display = "block";
+          ui.friendsEmpty.textContent = "No friends invited yet.";
+          return;
+        }
+
+        ui.friendsEmpty.style.display = "none";
+        for (const friend of items) {
+          const li = document.createElement("li");
+          const label = (friend && (friend.firstName || friend.username)) || "Unknown user";
+          li.textContent = label;
+          ui.friendsList.appendChild(li);
+        }
+      }
+
+      async function loadFriends() {
+        try {
+          const data = await apiRequest(ENDPOINTS.friendsList, { method: "GET" });
+          const list = Array.isArray(data)
+            ? data
+            : (data && (data.friends || data.items || data.data || []));
+          renderFriends(list);
+        } catch (error) {
+          ui.friendsEmpty.style.display = "block";
+          ui.friendsEmpty.textContent = "Failed to load friends.";
+          setStatus(error.message || "Could not load friends list.", "error");
+        }
+      }
+
+      async function handleRefreshClick() {
+        if (state.inFlight.refresh) return;
+        state.inFlight.refresh = true;
+        setButtonLoading(ui.refreshBtn, true, "Refreshing...", "Refresh Timer");
+        setStatus("Refreshing timer...");
+
+        try {
+          const data = await apiRequest(ENDPOINTS.timerRefresh, { method: "POST" });
+          const nextExpiresMs = parseExpiresAt(data);
+          if (!nextExpiresMs) {
+            throw new Error("Timer refresh succeeded but expiration time was not provided.");
+          }
+          state.timerExpiresAtMs = nextExpiresMs;
+          renderTimer();
+          setStatus("Timer refreshed successfully.", "success");
+        } catch (error) {
+          setStatus(error.message || "Failed to refresh timer.", "error");
+        } finally {
+          state.inFlight.refresh = false;
+          setButtonLoading(ui.refreshBtn, false, "Refreshing...", "Refresh Timer");
+        }
+      }
+
+      async function copyInviteLink(link) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          throw new Error("Clipboard API is unavailable in this environment.");
+        }
+        await navigator.clipboard.writeText(link);
+      }
+
+      async function handleInviteClick() {
+        if (state.inFlight.invite) return;
+        state.inFlight.invite = true;
+        setButtonLoading(ui.inviteBtn, true, "Preparing...", "Invite Friends");
+        setStatus("Requesting invite link...");
+
+        try {
+          const data = await apiRequest(ENDPOINTS.inviteLink, { method: "GET" });
+          const link = (data && (
+            data.inviteLink ||
+            data.link ||
+            data.url ||
+            (data.data && data.data.inviteLink) ||
+            (data.data && data.data.link) ||
+            (data.data && data.data.url)
+          )) || "";
+          if (!link || typeof link !== "string") {
+            throw new Error("Invite link not found in response.");
+          }
+          await copyInviteLink(link);
+          setStatus("Invite link copied to clipboard.", "success");
+        } catch (error) {
+          setStatus(error.message || "Failed to copy invite link.", "error");
+        } finally {
+          state.inFlight.invite = false;
+          setButtonLoading(ui.inviteBtn, false, "Preparing...", "Invite Friends");
+        }
+      }
+
+      async function authenticateAndBootstrap() {
+        setStatus("Loading...");
+        ui.friendsEmpty.textContent = "Loading friends...";
+        ui.refreshBtn.disabled = true;
+        ui.inviteBtn.disabled = true;
+
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (!tg) {
+          setStatus("This app must be opened inside Telegram.", "error");
+          ui.friendsEmpty.textContent = "Unavailable outside Telegram.";
+          return;
+        }
+
+        tg.ready();
+        tg.expand();
+        state.tg = tg;
+        state.initData = tg.initData || "";
+
+        if (!state.initData) {
+          setStatus("Missing Telegram initData. Open this app via Telegram.", "error");
+          ui.friendsEmpty.textContent = "Authorization failed.";
+          return;
+        }
+
+        const ref = getReferralFromUrl();
+        const loginPath = ref
+          ? ENDPOINTS.login + "?ref=" + encodeURIComponent(ref)
+          : ENDPOINTS.login;
+
+        try {
+          const loginData = await apiRequest(loginPath, { method: "POST" });
+          const expiresAtMs = parseExpiresAt(loginData);
+          if (!expiresAtMs) {
+            throw new Error("Login succeeded but timer expiration was not returned.");
+          }
+
+          state.timerExpiresAtMs = expiresAtMs;
+          startTimerTicking();
+          await loadFriends();
+
+          ui.refreshBtn.disabled = false;
+          ui.inviteBtn.disabled = false;
+
+          if (API_URL.includes("YOUR_NGROK_URL")) {
+            setStatus("Set API_URL to your backend URL before production use.", "error");
+          } else {
+            setStatus("Ready.", "success");
+          }
+        } catch (error) {
+          setStatus(error.message || "Authentication failed.", "error");
+          ui.friendsEmpty.textContent = "Could not load data.";
+          ui.refreshBtn.disabled = true;
+          ui.inviteBtn.disabled = true;
+        }
+      }
+
+      ui.refreshBtn.addEventListener("click", handleRefreshClick);
+      ui.inviteBtn.addEventListener("click", handleInviteClick);
+
+      authenticateAndBootstrap();
+    })();
   </script>
 </body>
 </html>
