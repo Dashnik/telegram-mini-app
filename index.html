@@ -279,10 +279,15 @@
         const url = API_URL.replace(/\/+$/, "") + path;
         const response = await fetch(url, {
           method: options.method || "GET",
+          // headers: {
+          //   "Content-Type": "application/json",
+          //   "Authorization": "tma " + state.initData
+          // },
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": "tma " + state.initData
-          },
+  "Content-Type": "application/json",
+  "Authorization": "tma " + state.initData,
+  "ngrok-skip-browser-warning": "true"
+},
           body: options.body ? JSON.stringify(options.body) : undefined
         });
 
@@ -459,6 +464,7 @@
   </script>
 </body>
 </html>
+
 
 
 
