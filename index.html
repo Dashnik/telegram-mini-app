@@ -279,10 +279,6 @@
         const url = API_URL.replace(/\/+$/, "") + path;
         const response = await fetch(url, {
           method: options.method || "GET",
-          // headers: {
-          //   "Content-Type": "application/json",
-          //   "Authorization": "tma " + state.initData
-          // },
           headers: {
   "Content-Type": "application/json",
   "Authorization": "tma " + state.initData,
@@ -425,12 +421,12 @@
         }
 
         const ref = getReferralFromUrl();
-        const loginPath = ref
-          ? ENDPOINTS.login + "?ref=" + encodeURIComponent(ref)
-          : ENDPOINTS.login;
 
         try {
-          const loginData = await apiRequest(loginPath, { method: "POST" });
+          const loginData = await apiRequest(ENDPOINTS.login, {
+            method: "POST",
+            body: ref ? { referralCode: ref } : undefined
+          });
           const expiresAtMs = parseExpiresAt(loginData);
           if (!expiresAtMs) {
             throw new Error("Login succeeded but timer expiration was not returned.");
