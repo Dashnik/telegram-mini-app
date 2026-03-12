@@ -35,7 +35,7 @@
     .app {
       max-width: 480px;
       margin: 0 auto;
-      padding: 16px;
+      padding: 16px 16px 110px;
       display: grid;
       gap: 14px;
     }
@@ -172,39 +172,127 @@
     #saveMessageBtn {
       background: var(--secondary);
     }
+
+    .tab-panel {
+      display: none;
+      gap: 14px;
+    }
+
+    .tab-panel.active {
+      display: grid;
+    }
+
+    .tabbar {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: min(480px, 100%);
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.92);
+      border-top: 1px solid var(--card-border);
+      backdrop-filter: blur(14px);
+    }
+
+    .tabbar-btn {
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 10px 8px;
+      border-radius: 12px;
+    }
+
+    .tabbar-btn.active {
+      background: rgba(34, 197, 94, 0.2);
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45) inset;
+    }
+
+    .field-label {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: -4px;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 12px;
+      background: rgba(17, 24, 39, 0.55);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.2;
+      appearance: none;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: rgba(34, 197, 94, 0.65);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
   </style>
 </head>
 <body>
   <main class="app">
-    <section class="card">
-      <h1>Alive Timer</h1>
-      <div id="timerDisplay" class="timer">00:00:00</div>
-      <div class="row">
-        <button id="refreshBtn" type="button">Refresh Timer</button>
-        <button id="inviteBtn" type="button">Invite Friends</button>
-      </div>
-      <div class="row">
-        <div class="muted">Optional message for friends (max 140 characters)</div>
-        <textarea
-          id="additionalMessage"
-          maxlength="140"
-          rows="3"
-          placeholder="Add a short note to be appended when you go inactive..."
-        ></textarea>
-        <div class="message-meta">
-          <span id="additionalMessageCount">0/140</span>
+    <div id="panelTimer" class="tab-panel active" data-panel="timer">
+      <section class="card">
+        <h1>Alive Timer</h1>
+        <div id="timerDisplay" class="timer">00:00:00</div>
+        <div class="row">
+          <button id="refreshBtn" type="button">Refresh Timer</button>
+          <button id="inviteBtn" type="button">Invite Friends</button>
         </div>
-        <button id="saveMessageBtn" type="button">Save Message</button>
-      </div>
-      <div id="globalStatus" class="status"></div>
-    </section>
+        <div class="row">
+          <div class="muted">Optional message for friends (max 140 characters)</div>
+          <textarea
+            id="additionalMessage"
+            maxlength="140"
+            rows="3"
+            placeholder="Add a short note to be appended when you go inactive..."
+          ></textarea>
+          <div class="message-meta">
+            <span id="additionalMessageCount">0/140</span>
+          </div>
+          <button id="saveMessageBtn" type="button">Save Message</button>
+        </div>
+        <div id="globalStatus" class="status"></div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Friends</h2>
-      <div id="friendsEmpty" class="muted">Loading friends...</div>
-      <ul id="friendsList" class="friends-list"></ul>
-    </section>
+    <div id="panelFriends" class="tab-panel" data-panel="friends">
+      <section class="card">
+        <h2>Friends</h2>
+        <div id="friendsEmpty" class="muted">Loading friends...</div>
+        <ul id="friendsList" class="friends-list"></ul>
+      </section>
+    </div>
+
+    <div id="panelSettings" class="tab-panel" data-panel="settings">
+      <section class="card">
+        <h2>Settings</h2>
+        <div class="row">
+          <div class="field-label">Check-in frequency</div>
+          <select id="checkInFrequencySelect" disabled>
+            <option value="5">5 minutes</option>
+            <option value="1440">1 day</option>
+            <option value="2880" selected>2 days</option>
+            <option value="4320">3 days</option>
+          </select>
+          <div id="settingsStatus" class="status"></div>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <nav class="tabbar" aria-label="Tabs">
+    <button class="tabbar-btn active" type="button" data-tab="timer">Timer</button>
+    <button class="tabbar-btn" type="button" data-tab="friends">Friends</button>
+    <button class="tabbar-btn" type="button" data-tab="settings">Settings</button>
+  </nav>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
@@ -217,7 +305,9 @@
         timerRefresh: "/timer/refresh",
         timerMessage: "/timer/message",
         inviteLink: "/invite/link",
-        friendsList: "/friends/list"
+        friendsList: "/friends/list",
+        settingsGet: "/settings",
+        settingsCheckinFrequency: "/settings/checkin-frequency"
       };
 
       const state = {
@@ -225,14 +315,21 @@
         initData: "",
         timerExpiresAtMs: 0,
         timerIntervalId: null,
+        checkInFrequencyMinutes: 2880,
+        activeTab: "timer",
         inFlight: {
           refresh: false,
           invite: false,
-          message: false
+          message: false,
+          settings: false
         }
       };
 
       const ui = {
+        panelTimer: document.getElementById("panelTimer"),
+        panelFriends: document.getElementById("panelFriends"),
+        panelSettings: document.getElementById("panelSettings"),
+        tabButtons: Array.from(document.querySelectorAll(".tabbar-btn")),
         timerDisplay: document.getElementById("timerDisplay"),
         refreshBtn: document.getElementById("refreshBtn"),
         inviteBtn: document.getElementById("inviteBtn"),
@@ -241,7 +338,9 @@
         saveMessageBtn: document.getElementById("saveMessageBtn"),
         globalStatus: document.getElementById("globalStatus"),
         friendsList: document.getElementById("friendsList"),
-        friendsEmpty: document.getElementById("friendsEmpty")
+        friendsEmpty: document.getElementById("friendsEmpty"),
+        checkInFrequencySelect: document.getElementById("checkInFrequencySelect"),
+        settingsStatus: document.getElementById("settingsStatus")
       };
 
       function setStatus(message, type) {
@@ -249,6 +348,29 @@
         ui.globalStatus.className = "status";
         if (type === "error") ui.globalStatus.classList.add("error");
         if (type === "success") ui.globalStatus.classList.add("success");
+      }
+
+      function setSettingsStatus(message, type) {
+        ui.settingsStatus.textContent = message || "";
+        ui.settingsStatus.className = "status";
+        if (type === "error") ui.settingsStatus.classList.add("error");
+        if (type === "success") ui.settingsStatus.classList.add("success");
+      }
+
+      function setActiveTab(tab) {
+        state.activeTab = tab;
+        const panels = [
+          { key: "timer", el: ui.panelTimer },
+          { key: "friends", el: ui.panelFriends },
+          { key: "settings", el: ui.panelSettings }
+        ];
+        for (const p of panels) {
+          if (!p.el) continue;
+          p.el.classList.toggle("active", p.key === tab);
+        }
+        for (const btn of ui.tabButtons) {
+          btn.classList.toggle("active", btn.dataset.tab === tab);
+        }
       }
 
       function setButtonLoading(button, loading, textWhenLoading, textWhenIdle) {
@@ -370,6 +492,39 @@
         return data;
       }
 
+      function toAllowedCheckInMinutes(rawValue) {
+        const allowed = new Set([5, 1440, 2880, 4320]);
+        const asNumber =
+          typeof rawValue === "number" && Number.isFinite(rawValue)
+            ? rawValue
+            : typeof rawValue === "string" && rawValue.trim() !== "" && /^[0-9]+$/.test(rawValue.trim())
+              ? Number(rawValue.trim())
+              : NaN;
+        if (Number.isInteger(asNumber) && allowed.has(asNumber)) return asNumber;
+        return 2880;
+      }
+
+      async function loadSettings() {
+        setSettingsStatus("");
+        try {
+          const data = await apiRequest(ENDPOINTS.settingsGet, { method: "GET" });
+          const minutes = toAllowedCheckInMinutes(data && (
+            data.checkInFrequencyMinutes ||
+            (data.data && data.data.checkInFrequencyMinutes)
+          ));
+          state.checkInFrequencyMinutes = minutes;
+          ui.checkInFrequencySelect.value = String(minutes);
+
+          const expiresAtMs = parseExpiresAt(data);
+          if (expiresAtMs) {
+            state.timerExpiresAtMs = expiresAtMs;
+            renderTimer();
+          }
+        } catch (error) {
+          setSettingsStatus(error.message || "Failed to load settings.", "error");
+        }
+      }
+
       function renderFriends(items) {
         ui.friendsList.innerHTML = "";
         if (!Array.isArray(items) || items.length === 0) {
@@ -398,6 +553,36 @@
           ui.friendsEmpty.style.display = "block";
           ui.friendsEmpty.textContent = "Failed to load friends.";
           setStatus(error.message || "Could not load friends list.", "error");
+        }
+      }
+
+      async function handleCheckInFrequencyChange() {
+        if (state.inFlight.settings) return;
+        state.inFlight.settings = true;
+
+        const minutes = toAllowedCheckInMinutes(ui.checkInFrequencySelect.value);
+        ui.checkInFrequencySelect.disabled = true;
+        setSettingsStatus("Saving...");
+
+        try {
+          const data = await apiRequest(ENDPOINTS.settingsCheckinFrequency, {
+            method: "POST",
+            body: { checkInFrequencyMinutes: minutes }
+          });
+
+          state.checkInFrequencyMinutes = minutes;
+          const expiresAtMs = parseExpiresAt(data);
+          if (expiresAtMs) {
+            state.timerExpiresAtMs = expiresAtMs;
+            renderTimer();
+          }
+          setSettingsStatus("Saved.", "success");
+        } catch (error) {
+          ui.checkInFrequencySelect.value = String(state.checkInFrequencyMinutes || 2880);
+          setSettingsStatus(error.message || "Failed to save setting.", "error");
+        } finally {
+          state.inFlight.settings = false;
+          ui.checkInFrequencySelect.disabled = false;
         }
       }
 
@@ -490,6 +675,8 @@
         ui.inviteBtn.disabled = true;
         ui.additionalMessage.disabled = true;
         ui.saveMessageBtn.disabled = true;
+        ui.checkInFrequencySelect.disabled = true;
+        setSettingsStatus("");
         renderAdditionalMessageCount();
 
         const tg = window.Telegram && window.Telegram.WebApp;
@@ -525,11 +712,13 @@
           state.timerExpiresAtMs = expiresAtMs;
           startTimerTicking();
           await loadFriends();
+          await loadSettings();
 
           ui.refreshBtn.disabled = false;
           ui.inviteBtn.disabled = false;
           ui.additionalMessage.disabled = false;
           ui.saveMessageBtn.disabled = false;
+          ui.checkInFrequencySelect.disabled = false;
 
           if (API_URL.includes("YOUR_NGROK_URL")) {
             setStatus("Set API_URL to your backend URL before production use.", "error");
@@ -550,6 +739,10 @@
       ui.inviteBtn.addEventListener("click", handleInviteClick);
       ui.additionalMessage.addEventListener("input", renderAdditionalMessageCount);
       ui.saveMessageBtn.addEventListener("click", handleSaveMessageClick);
+      ui.checkInFrequencySelect.addEventListener("change", handleCheckInFrequencyChange);
+      for (const btn of ui.tabButtons) {
+        btn.addEventListener("click", () => setActiveTab(btn.dataset.tab || "timer"));
+      }
 
       authenticateAndBootstrap();
     })();
