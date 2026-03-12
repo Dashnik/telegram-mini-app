@@ -259,11 +259,21 @@
         return 0;
       }
 
-      function getReferralFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        const ref = params.get("ref");
-        return ref ? ref.trim() : "";
-      }
+   function getReferralFromUrl() {
+  const tg = window.Telegram?.WebApp;
+
+  // Telegram referral parameter (when opened via bot)
+  const telegramRef = tg?.initDataUnsafe?.start_param;
+  if (telegramRef) {
+    return telegramRef.trim();
+  }
+
+  // Fallback for browser testing
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get("ref");
+
+  return ref ? ref.trim() : "";
+}
 
       async function apiRequest(path, options) {
         const url = API_URL.replace(/\/+$/, "") + path;
@@ -449,5 +459,6 @@
   </script>
 </body>
 </html>
+
 
 
