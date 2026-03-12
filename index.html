@@ -137,6 +137,41 @@
       color: var(--muted);
       font-size: 14px;
     }
+
+    textarea {
+      width: 100%;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(17, 24, 39, 0.55);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.35;
+      resize: vertical;
+      min-height: 84px;
+    }
+
+    textarea::placeholder {
+      color: rgba(148, 163, 184, 0.8);
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: rgba(34, 197, 94, 0.65);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+
+    .message-meta {
+      display: flex;
+      justify-content: flex-end;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: -4px;
+    }
+
+    #saveMessageBtn {
+      background: var(--secondary);
+    }
   </style>
 </head>
 <body>
@@ -147,6 +182,19 @@
       <div class="row">
         <button id="refreshBtn" type="button">Refresh Timer</button>
         <button id="inviteBtn" type="button">Invite Friends</button>
+      </div>
+      <div class="row">
+        <div class="muted">Optional message for friends (max 140 characters)</div>
+        <textarea
+          id="additionalMessage"
+          maxlength="140"
+          rows="3"
+          placeholder="Add a short note to be appended when you go inactive..."
+        ></textarea>
+        <div class="message-meta">
+          <span id="additionalMessageCount">0/140</span>
+        </div>
+        <button id="saveMessageBtn" type="button">Save Message</button>
       </div>
       <div id="globalStatus" class="status"></div>
     </section>
@@ -167,6 +215,7 @@
       const ENDPOINTS = {
         login: "/auth/login",
         timerRefresh: "/timer/refresh",
+        timerMessage: "/timer/message",
         inviteLink: "/invite/link",
         friendsList: "/friends/list"
       };
@@ -178,7 +227,8 @@
         timerIntervalId: null,
         inFlight: {
           refresh: false,
-          invite: false
+          invite: false,
+          message: false
         }
       };
 
@@ -186,6 +236,9 @@
         timerDisplay: document.getElementById("timerDisplay"),
         refreshBtn: document.getElementById("refreshBtn"),
         inviteBtn: document.getElementById("inviteBtn"),
+        additionalMessage: document.getElementById("additionalMessage"),
+        additionalMessageCount: document.getElementById("additionalMessageCount"),
+        saveMessageBtn: document.getElementById("saveMessageBtn"),
         globalStatus: document.getElementById("globalStatus"),
         friendsList: document.getElementById("friendsList"),
         friendsEmpty: document.getElementById("friendsEmpty")
@@ -201,6 +254,17 @@
       function setButtonLoading(button, loading, textWhenLoading, textWhenIdle) {
         button.disabled = loading;
         button.textContent = loading ? textWhenLoading : textWhenIdle;
+      }
+
+      function normalizeAdditionalMessage(value) {
+        const raw = typeof value === "string" ? value : "";
+        return raw.slice(0, 140);
+      }
+
+      function renderAdditionalMessageCount() {
+        const clamped = normalizeAdditionalMessage(ui.additionalMessage.value);
+        if (ui.additionalMessage.value !== clamped) ui.additionalMessage.value = clamped;
+        ui.additionalMessageCount.textContent = `${clamped.length}/140`;
       }
 
       function formatDuration(totalSeconds) {
@@ -396,11 +460,37 @@
         }
       }
 
+      async function handleSaveMessageClick() {
+        if (state.inFlight.message) return;
+        state.inFlight.message = true;
+        setButtonLoading(ui.saveMessageBtn, true, "Saving...", "Save Message");
+        setStatus("Saving message...");
+
+        const message = normalizeAdditionalMessage(ui.additionalMessage.value).trim();
+        renderAdditionalMessageCount();
+
+        try {
+          await apiRequest(ENDPOINTS.timerMessage, {
+            method: "POST",
+            body: { additionalMessage: message }
+          });
+          setStatus(message ? "Message saved." : "Message cleared.", "success");
+        } catch (error) {
+          setStatus(error.message || "Failed to save message.", "error");
+        } finally {
+          state.inFlight.message = false;
+          setButtonLoading(ui.saveMessageBtn, false, "Saving...", "Save Message");
+        }
+      }
+
       async function authenticateAndBootstrap() {
         setStatus("Loading...");
         ui.friendsEmpty.textContent = "Loading friends...";
         ui.refreshBtn.disabled = true;
         ui.inviteBtn.disabled = true;
+        ui.additionalMessage.disabled = true;
+        ui.saveMessageBtn.disabled = true;
+        renderAdditionalMessageCount();
 
         const tg = window.Telegram && window.Telegram.WebApp;
         if (!tg) {
@@ -438,6 +528,8 @@
 
           ui.refreshBtn.disabled = false;
           ui.inviteBtn.disabled = false;
+          ui.additionalMessage.disabled = false;
+          ui.saveMessageBtn.disabled = false;
 
           if (API_URL.includes("YOUR_NGROK_URL")) {
             setStatus("Set API_URL to your backend URL before production use.", "error");
@@ -449,11 +541,15 @@
           ui.friendsEmpty.textContent = "Could not load data.";
           ui.refreshBtn.disabled = true;
           ui.inviteBtn.disabled = true;
+          ui.additionalMessage.disabled = true;
+          ui.saveMessageBtn.disabled = true;
         }
       }
 
       ui.refreshBtn.addEventListener("click", handleRefreshClick);
       ui.inviteBtn.addEventListener("click", handleInviteClick);
+      ui.additionalMessage.addEventListener("input", renderAdditionalMessageCount);
+      ui.saveMessageBtn.addEventListener("click", handleSaveMessageClick);
 
       authenticateAndBootstrap();
     })();
