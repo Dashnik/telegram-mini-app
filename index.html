@@ -445,21 +445,41 @@
         return 0;
       }
 
-   function getReferralFromUrl() {
-  const tg = window.Telegram?.WebApp;
+      function getReferralFromUrl() {
+        const tg = window.Telegram?.WebApp;
 
-  // Telegram referral parameter (when opened via bot)
-  const telegramRef = tg?.initDataUnsafe?.start_param;
-  if (telegramRef) {
-    return telegramRef.trim();
-  }
+        // Telegram Mini Apps referral parameter (preferred).
+        const telegramRef = tg?.initDataUnsafe?.start_param;
+        if (typeof telegramRef === "string" && telegramRef.trim() !== "") {
+          return telegramRef.trim();
+        }
 
-  // Fallback for browser testing
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get("ref");
+        // Some clients expose it as a launch parameter in the page URL.
+        const searchParams = new URLSearchParams(window.location.search || "");
+        const hashParams = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
 
-  return ref ? ref.trim() : "";
-}
+        const candidates = [
+          searchParams.get("tgWebAppStartParam"),
+          hashParams.get("tgWebAppStartParam"),
+          searchParams.get("start_param"),
+          hashParams.get("start_param"),
+          searchParams.get("startapp"),
+          hashParams.get("startapp"),
+          // browser testing
+          searchParams.get("referralCode"),
+          hashParams.get("referralCode"),
+          searchParams.get("ref"),
+          hashParams.get("ref")
+        ];
+
+        for (const value of candidates) {
+          if (typeof value === "string" && value.trim() !== "") {
+            return value.trim();
+          }
+        }
+
+        return "";
+      }
 
       async function apiRequest(path, options) {
         const url = API_URL.replace(/\/+$/, "") + path;
